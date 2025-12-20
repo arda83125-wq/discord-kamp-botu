@@ -1,50 +1,15 @@
-// =====================
-// MODÜLLER
-// =====================
-const express = require("express");
-const cron = require("node-cron");
 const {
   Client,
   GatewayIntentBits,
   REST,
   Routes,
   SlashCommandBuilder,
-  EmbedBuilder,
-  PermissionsBitField
+  PermissionsBitField,
+  EmbedBuilder
 } = require("discord.js");
 
-// =====================
-// EXPRESS (RENDER PORT)
-// =====================
-const app = express();
-const PORT = process.env.PORT || 3000;
+require("dotenv").config();
 
-app.get("/", (req, res) => {
-  res.send("🪖 Askerî Kamp Botu ONLINE");
-});
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🌐 Dashboard PORT açıldı:", PORT);
-});
-
-// =====================
-// AYARLAR
-// =====================
-const TOKEN = process.env.DISCORD_TOKEN;
-const ROLE_NAME = "DM-Duyuru";
-const ICTIMA_CHANNEL_ID = "1451620850993336469"; // 👈 DEĞİŞTİR
-
-const ICTIMA_SORULARI = [
-  "İçtima nedir, neden yapılır?",
-  "Disiplin askerde neden önemlidir?",
-  "Bir askerin ilk görevi nedir?",
-  "Nöbetçinin sorumlulukları nelerdir?",
-  "Komutan emri neden önemlidir?"
-];
-
-// =====================
-// DISCORD CLIENT
-// =====================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -52,130 +17,148 @@ const client = new Client({
   ]
 });
 
-// =====================
-// READY
-// =====================
+const TOKEN = process.env.DISCORD_TOKEN;
+
+// ================= SLASH KOMUTLAR =================
+const commands = [
+  new SlashCommandBuilder()
+    .setName("komutlar")
+    .setDescription("Botun tüm komutlarını gösterir"),
+
+  new SlashCommandBuilder()
+    .setName("ceza")
+    .setDescription("Askere ceza verir")
+    .addUserOption(o =>
+      o.setName("asker").setDescription("Cezalandırılacak asker").setRequired(true)
+    )
+    .addStringOption(o =>
+      o.setName("sebep").setDescription("Ceza sebebi").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("cezakaldir")
+    .setDescription("Askerin cezasını kaldırır")
+    .addUserOption(o =>
+      o.setName("asker").setDescription("Cezası kaldırılacak asker").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("izinver")
+    .setDescription("Askere izin verir")
+    .addUserOption(o =>
+      o.setName("asker").setDescription("İzin verilecek asker").setRequired(true)
+    )
+    .addStringOption(o =>
+      o.setName("sebep").setDescription("İzin sebebi").setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("izinkaldir")
+    .setDescription("Askerin iznini kaldırır")
+    .addUserOption(o =>
+      o.setName("asker").setDescription("İzni kaldırılacak asker").setRequired(true)
+    )
+].map(cmd => cmd.toJSON());
+
+// ================= BOT READY =================
 client.once("ready", async () => {
-  console.log("🤖 Bot Discord’a bağlandı");
+  console.log(`✅ Bot online: ${client.user.tag}`);
 
-  // 🔹 SLASH KOMUTLAR (HEPSİ GÖRÜNÜR)
-  const commands = [
-    new SlashCommandBuilder().setName("komutlar").setDescription("Tüm komutları gösterir"),
-    new SlashCommandBuilder().setName("ictima").setDescription("Rastgele içtima sorusu"),
-    new SlashCommandBuilder().setName("katil").setDescription("DM duyurularına katıl"),
-    new SlashCommandBuilder().setName("ayril").setDescription("DM duyurularından çık"),
-    new SlashCommandBuilder()
-      .setName("duyuru")
-      .setDescription("DM-Duyuru rolüne DM gönderir (Yetkili)")
-      .addStringOption(o =>
-        o.setName("mesaj")
-          .setDescription("Gönderilecek mesaj")
-          .setRequired(true)
-      )
-  ].map(c => c.toJSON());
-
+  // Slash komut yükleme
   const rest = new REST({ version: "10" }).setToken(TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
   console.log("✅ Slash komutlar yüklendi");
 
-  // 🔹 DM DUYURU ROLÜ
+  // Roller otomatik oluşturma
   client.guilds.cache.forEach(async guild => {
-    if (!guild.roles.cache.find(r => r.name === ROLE_NAME)) {
-      await guild.roles.create({
-        name: ROLE_NAME,
-        color: "Blue",
-        reason: "DM Duyuru Rolü"
-      });
-      console.log("🧩 DM-Duyuru rolü oluşturuldu");
+    const roles = [
+      { name: "Ceza", color: "Red" },
+      { name: "İzinli", color: "Green" }
+    ];
+
+    for (const r of roles) {
+      if (!guild.roles.cache.find(role => role.name === r.name)) {
+        await guild.roles.create({
+          name: r.name,
+          color: r.color,
+          reason: "Askerî Kamp Botu – Otomatik Rol"
+        });
+        console.log(`🆕 ${r.name} rolü oluşturuldu (${guild.name})`);
+      }
     }
   });
-
-  // 🕒 OTOMATİK İÇTİMA
-  const kanal = client.channels.cache.get(ICTIMA_CHANNEL_ID);
-  if (!kanal) {
-    console.log("❌ İçtima kanalı bulunamadı");
-  } else {
-    const gonder = () => {
-      const soru = ICTIMA_SORULARI[Math.floor(Math.random() * ICTIMA_SORULARI.length)];
-      kanal.send(`🪖 **İÇTİMA ZAMANI**\n${soru}`);
-    };
-
-    cron.schedule("0 9 * * *", gonder, { timezone: "Europe/Istanbul" });
-    cron.schedule("0 14 * * *", gonder, { timezone: "Europe/Istanbul" });
-    cron.schedule("0 21 * * *", gonder, { timezone: "Europe/Istanbul" });
-
-    console.log("🕒 Otomatik içtima aktif (09 / 14 / 21)");
-  }
 });
 
-// =====================
-// SLASH KOMUT ÇALIŞMA
-// =====================
+// ================= KOMUTLAR =================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
+
+  const cezaRol = interaction.guild.roles.cache.find(r => r.name === "Ceza");
+  const izinRol = interaction.guild.roles.cache.find(r => r.name === "İzinli");
 
   // /komutlar
   if (interaction.commandName === "komutlar") {
     const embed = new EmbedBuilder()
-      .setTitle("🪖 Askerî Kamp Botu – Komutlar")
+      .setTitle("|BIG| Turkish Army Forces – Komutlar")
       .setColor(0x2f3136)
-      .setDescription(
-`👤 **Genel**
+      .setDescription(`
+👤 **Genel**
 • /komutlar
 
-🪖 **Askerî**
-• /ictima
+🚫 **Ceza**
+• /ceza @asker sebep
+• /cezakaldir @asker
 
-📩 **DM Duyuru**
-• /katil
-• /ayril
-• /duyuru mesaj`
-      );
+🟢 **İzin**
+• /izinver @asker sebep
+• /izinkaldir @asker
+      `);
 
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
-  // /ictima
-  if (interaction.commandName === "ictima") {
-    const soru = ICTIMA_SORULARI[Math.floor(Math.random() * ICTIMA_SORULARI.length)];
-    return interaction.reply(`🪖 **İÇTİMA**\n${soru}`);
+  // Yetki kontrolü
+  if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    return interaction.reply({ content: "❌ Yetkin yok.", ephemeral: true });
   }
 
-  // /katil
-  if (interaction.commandName === "katil") {
-    const role = interaction.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    await interaction.member.roles.add(role);
-    return interaction.reply({ content: "✅ DM duyurularına katıldın", ephemeral: true });
+  // /ceza
+  if (interaction.commandName === "ceza") {
+    const asker = interaction.options.getMember("asker");
+    const sebep = interaction.options.getString("sebep");
+
+    await asker.roles.add(cezaRol);
+    return interaction.reply(`🟥 ${asker} cezalandırıldı.\n📄 Sebep: **${sebep}**`);
   }
 
-  // /ayril
-  if (interaction.commandName === "ayril") {
-    const role = interaction.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    await interaction.member.roles.remove(role);
-    return interaction.reply({ content: "❌ DM duyurularından çıktın", ephemeral: true });
+  // /cezakaldir
+  if (interaction.commandName === "cezakaldir") {
+    const asker = interaction.options.getMember("asker");
+
+    await asker.roles.remove(cezaRol);
+    return interaction.reply(`🟢 ${asker} cezası kaldırıldı.`);
   }
 
-  // /duyuru
-  if (interaction.commandName === "duyuru") {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return interaction.reply({ content: "❌ Yetkin yok", ephemeral: true });
+  // /izinver
+  if (interaction.commandName === "izinver") {
+    const asker = interaction.options.getMember("asker");
+    const sebep = interaction.options.getString("sebep");
 
-    const text = interaction.options.getString("mesaj");
-    const role = interaction.guild.roles.cache.find(r => r.name === ROLE_NAME);
+    await asker.roles.add(izinRol);
+    return interaction.reply(`🟢 ${asker} izinli.\n📄 Sebep: **${sebep}**`);
+  }
 
-    let sent = 0;
-    for (const member of role.members.values()) {
-      try {
-        await member.send(`📢 **Askerî Kamp Duyuru**\n\n${text}`);
-        sent++;
-      } catch {}
-    }
+  // /izinkaldir
+  if (interaction.commandName === "izinkaldir") {
+    const asker = interaction.options.getMember("asker");
 
-    return interaction.reply(`✅ ${sent} kişiye DM gönderildi`);
+    await asker.roles.remove(izinRol);
+    return interaction.reply(`🟢 ${asker} izni kaldırıldı.`);
   }
 });
 
-// =====================
-// LOGIN
-// =====================
+// ================= LOGIN =================
 client.login(TOKEN);
