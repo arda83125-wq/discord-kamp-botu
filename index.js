@@ -69,3 +69,32 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+
+if (command === "komutlar") {
+  message.reply(
+`🪖 **ASKERÎ KAMP BOTU – KOMUT LİSTESİ**
+
+👤 **Genel Komutlar**
+• \`!komutlar\` → Komut listesini gösterir
+• \`!katil\` → DM duyurularına katıl
+• \`!ayril\` → DM duyurularından çık
+
+📩 **Duyuru**
+• \`!dm mesaj\` → DM-Duyuru rolündekilere mesaj gönderir (Yetkili)
+
+🎖️ **Eğlence / RP**
+• \`!nobet\` → Rastgele nöbetçi seçer
+• \`!komutan\` → Günün komutanını seçer
+• \`!terfi @kisi\` → Şaka amaçlı terfi
+• \`!alarm\` → Acil durum alarmı
+
+🪖 **Askerî Kamp**
+• \`!ictima\` → Rastgele içtima sorusu
+
+📌 **Not**
+Komutlar zamanla güncellenebilir.
+Disiplinli asker, güçlü birlik!
+`
+  );
+}
