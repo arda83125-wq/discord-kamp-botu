@@ -1,4 +1,12 @@
-const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
+const { 
+  Client, 
+  GatewayIntentBits, 
+  REST, 
+  Routes, 
+  SlashCommandBuilder, 
+  EmbedBuilder 
+} = require("discord.js");
+
 
 const client = new Client({
   intents: [
@@ -12,8 +20,29 @@ const client = new Client({
 const PREFIX = "!";
 const ROLE_NAME = "DM-Duyuru";
 
-client.once("ready", async () => {
-  console.log("Bot aktif!");
+client.once("ready", () => {
+  console.log("Bot online");
+  const commands = [
+  new SlashCommandBuilder()
+    .setName("komutlar")
+    .setDescription("Askerî kamp botunun tüm komutlarını gösterir")
+].map(cmd => cmd.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+  try {
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    console.log("✅ Slash komut yüklendi");
+  } catch (err) {
+    console.error(err);
+  }
+})();
+
+});
 
   client.guilds.cache.forEach(async (guild) => {
     let role = guild.roles.cache.find(r => r.name === ROLE_NAME);
@@ -67,6 +96,33 @@ client.on("messageCreate", async (message) => {
     message.reply(`✅ ${sent} kişiye DM gönderildi.`);
   }
 });
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "komutlar") {
+    const embed = new EmbedBuilder()
+      .setTitle("🪖 Askerî Kamp Botu – Komutlar")
+      .setColor(0x2F3136)
+      .setDescription(
+`👤 **Genel**
+• /komutlar
+
+📩 **DM Duyuru**
+• !katil
+• !ayril
+• !dm mesaj
+
+🎖️ **RP / Eğlence**
+• !nobet
+• !komutan
+• !terfi @kisi
+• !alarm
+• !ictima`
+      );
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+});
 
 client.login(process.env.DISCORD_TOKEN);
 
@@ -98,3 +154,5 @@ Disiplinli asker, güçlü birlik!
 `
   );
 }
+
+const { REST, Routes, SlashCommandBuilder, EmbedBuilder } = require("discord.js");
