@@ -8,17 +8,14 @@ const {
   PermissionsBitField
 } = require("discord.js");
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
-  ]
-});
+const cron = require("node-cron");
 
+/* =======================
+   BOT AYARLARI
+======================= */
 const PREFIX = "!";
 const ROLE_NAME = "DM-Duyuru";
+const ICTIMA_CHANNEL_ID = "1451620850993336469"; // 👈 BURAYI DEĞİŞTİR
 
 const ICTIMA_SORULARI = [
   "Askerde disiplin neden önemlidir?",
@@ -29,12 +26,24 @@ const ICTIMA_SORULARI = [
 ];
 
 /* =======================
+   CLIENT
+======================= */
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});
+
+/* =======================
    READY
 ======================= */
 client.once("ready", async () => {
   console.log("Bot online");
 
-  // 🔹 SLASH KOMUTLAR
+  // 🔹 SLASH KOMUTLARI YÜKLE
   const commands = [
     new SlashCommandBuilder().setName("komutlar").setDescription("Tüm komutları gösterir"),
     new SlashCommandBuilder().setName("ictima").setDescription("Rastgele içtima sorusu"),
@@ -63,6 +72,24 @@ client.once("ready", async () => {
       console.log(`${ROLE_NAME} rolü oluşturuldu`);
     }
   });
+
+  // 🕒 OTOMATİK İÇTİMA (GÜNDE 3 KEZ)
+  const ictimaKanal = client.channels.cache.get(ICTIMA_CHANNEL_ID);
+
+  if (!ictimaKanal) {
+    console.log("❌ İçtima kanalı bulunamadı");
+  } else {
+    const ictimaGonder = () => {
+      const soru = ICTIMA_SORULARI[Math.floor(Math.random() * ICTIMA_SORULARI.length)];
+      ictimaKanal.send(`🪖 **İÇTİMA ZAMANI**\n${soru}`);
+    };
+
+    cron.schedule("0 9 * * *", ictimaGonder, { timezone: "Europe/Istanbul" });
+    cron.schedule("0 14 * * *", ictimaGonder, { timezone: "Europe/Istanbul" });
+    cron.schedule("0 21 * * *", ictimaGonder, { timezone: "Europe/Istanbul" });
+
+    console.log("🕒 Otomatik içtima sistemi aktif (günde 3 kez)");
+  }
 });
 
 /* =======================
@@ -114,7 +141,6 @@ client.on("messageCreate", async message => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  // 📜 KOMUTLAR
   if (interaction.commandName === "komutlar") {
     const embed = new EmbedBuilder()
       .setTitle("🪖 Askerî Kamp Botu – Komutlar")
@@ -138,20 +164,17 @@ _Disiplinli asker, güçlü birlik._`
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
-  // 🪖 İÇTİMA
   if (interaction.commandName === "ictima") {
     const soru = ICTIMA_SORULARI[Math.floor(Math.random() * ICTIMA_SORULARI.length)];
     return interaction.reply(`🪖 **İÇTİMA SORUSU**\n${soru}`);
   }
 
-  // 🕒 NÖBET
   if (interaction.commandName === "nobet") {
     const members = interaction.guild.members.cache.filter(m => !m.user.bot).map(m => m);
     const secilen = members[Math.floor(Math.random() * members.length)];
     return interaction.reply(`🕒 **Bugünün nöbetçisi:** ${secilen}`);
   }
 
-  // 🎖️ KOMUTAN
   if (interaction.commandName === "komutan") {
     const members = interaction.guild.members.cache.filter(m => !m.user.bot).map(m => m);
     const secilen = members[Math.floor(Math.random() * members.length)];
