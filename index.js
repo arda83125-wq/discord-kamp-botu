@@ -20,33 +20,39 @@ const client = new Client({
 const PREFIX = "!";
 const ROLE_NAME = "DM-Duyuru";
 
+const ICTIMA_SORULARI = [
+  "Askerde disiplin neden önemlidir?",
+  "İçtima nedir, neden yapılır?",
+  "Bir askerin ilk görevi nedir?",
+  "Nöbetçinin sorumlulukları nelerdir?",
+  "Komutan emri neden sorgulanmaz?"
+];
+
 /* =======================
-   BOT READY
+   READY
 ======================= */
 client.once("ready", async () => {
   console.log("Bot online");
 
-  // 🔹 SLASH KOMUT YÜKLE
+  // 🔹 SLASH KOMUTLAR
   const commands = [
-    new SlashCommandBuilder()
-      .setName("komutlar")
-      .setDescription("Askerî kamp botunun tüm komutlarını gösterir")
+    new SlashCommandBuilder().setName("komutlar").setDescription("Tüm komutları gösterir"),
+    new SlashCommandBuilder().setName("ictima").setDescription("Rastgele içtima sorusu"),
+    new SlashCommandBuilder().setName("nobet").setDescription("Rastgele nöbetçi seçer"),
+    new SlashCommandBuilder().setName("komutan").setDescription("Günün komutanını seçer")
   ].map(cmd => cmd.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-  try {
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
-    console.log("✅ Slash komut yüklendi");
-  } catch (err) {
-    console.error(err);
-  }
+  await rest.put(
+    Routes.applicationCommands(client.user.id),
+    { body: commands }
+  );
 
-  // 🔹 DM-DUYURU ROLÜ OLUŞTUR
-  client.guilds.cache.forEach(async (guild) => {
+  console.log("✅ Slash komutlar yüklendi");
+
+  // 🔹 DM DUYURU ROLÜ
+  client.guilds.cache.forEach(async guild => {
     let role = guild.roles.cache.find(r => r.name === ROLE_NAME);
     if (!role) {
       await guild.roles.create({
@@ -62,7 +68,7 @@ client.once("ready", async () => {
 /* =======================
    PREFIX KOMUTLARI
 ======================= */
-client.on("messageCreate", async (message) => {
+client.on("messageCreate", async message => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
 
@@ -71,16 +77,14 @@ client.on("messageCreate", async (message) => {
 
   if (command === "katil") {
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    if (!role) return message.reply("❌ Rol bulunamadı.");
     await message.member.roles.add(role);
-    message.reply("✅ DM duyurularına katıldın.");
+    return message.reply("✅ DM duyurularına katıldın.");
   }
 
   if (command === "ayril") {
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    if (!role) return message.reply("❌ Rol bulunamadı.");
     await message.member.roles.remove(role);
-    message.reply("❌ DM duyurularından çıktın.");
+    return message.reply("❌ DM duyurularından çıktın.");
   }
 
   if (command === "dm") {
@@ -91,14 +95,11 @@ client.on("messageCreate", async (message) => {
     if (!text) return message.reply("❌ Mesaj yaz.");
 
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    if (!role) return message.reply("❌ Rol bulunamadı.");
-
     let sent = 0;
+
     for (const member of role.members.values()) {
       try {
-        await member.send(
-          `📢 **BIG | Turkish Army Forces Duyuru**\n\n${text}`
-        );
+        await member.send(`📢 **BIG | Turkish Army Forces Duyuru**\n\n${text}`);
         sent++;
       } catch {}
     }
@@ -113,6 +114,7 @@ client.on("messageCreate", async (message) => {
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
+  // 📜 KOMUTLAR
   if (interaction.commandName === "komutlar") {
     const embed = new EmbedBuilder()
       .setTitle("🪖 Askerî Kamp Botu – Komutlar")
@@ -121,22 +123,39 @@ client.on("interactionCreate", async interaction => {
 `👤 **Genel**
 • /komutlar
 
+🪖 **Askerî**
+• /ictima
+• /nobet
+• /komutan
+
 📩 **DM Duyuru**
 • !katil
 • !ayril
 • !dm mesaj
 
-🎖️ **RP / Eğlence**
-• !nobet
-• !komutan
-• !terfi @kisi
-• !alarm
-• !ictima
-
 _Disiplinli asker, güçlü birlik._`
       );
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+  // 🪖 İÇTİMA
+  if (interaction.commandName === "ictima") {
+    const soru = ICTIMA_SORULARI[Math.floor(Math.random() * ICTIMA_SORULARI.length)];
+    return interaction.reply(`🪖 **İÇTİMA SORUSU**\n${soru}`);
+  }
+
+  // 🕒 NÖBET
+  if (interaction.commandName === "nobet") {
+    const members = interaction.guild.members.cache.filter(m => !m.user.bot).map(m => m);
+    const secilen = members[Math.floor(Math.random() * members.length)];
+    return interaction.reply(`🕒 **Bugünün nöbetçisi:** ${secilen}`);
+  }
+
+  // 🎖️ KOMUTAN
+  if (interaction.commandName === "komutan") {
+    const members = interaction.guild.members.cache.filter(m => !m.user.bot).map(m => m);
+    const secilen = members[Math.floor(Math.random() * members.length)];
+    return interaction.reply(`🎖️ **Günün Komutanı:** ${secilen}`);
   }
 });
 
