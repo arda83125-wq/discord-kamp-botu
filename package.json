@@ -9,8 +9,11 @@
   "engines": {
     "node": "18.x"
   },
-  "dependencies": {
-    "discord.js": "^14.14.1",
-    "node-cron": "^3.0.3"
+"dependencies": {
+  "discord.js": "^14.14.1",
+  "node-cron": "^3.0.3",
+  "express": "^4.19.2",
+  "ejs": "^3.1.9"
   }
 }
+
