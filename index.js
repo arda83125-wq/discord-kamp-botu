@@ -33,7 +33,7 @@ app.listen(PORT, "0.0.0.0", () => {
 const TOKEN = process.env.DISCORD_TOKEN;
 const PREFIX = "!";
 const ROLE_NAME = "DM-Duyuru";
-const ICTIMA_CHANNEL_ID = "KANAL_ID_BURAYA"; // 👈 BURAYI DEĞİŞTİR
+const ICTIMA_CHANNEL_ID = "1451620850993336469"; // 👈 BURAYI DEĞİŞTİR
 
 const ICTIMA_SORULARI = [
   "İçtima nedir, neden yapılır?",
@@ -174,3 +174,4 @@ client.on("interactionCreate", async i => {
 // BOT LOGIN
 // =====================
 client.login(TOKEN);
+
