@@ -4,9 +4,9 @@ const {
   REST, 
   Routes, 
   SlashCommandBuilder, 
-  EmbedBuilder 
+  EmbedBuilder,
+  PermissionsBitField
 } = require("discord.js");
-
 
 const client = new Client({
   intents: [
@@ -20,17 +20,21 @@ const client = new Client({
 const PREFIX = "!";
 const ROLE_NAME = "DM-Duyuru";
 
-client.once("ready", () => {
+/* =======================
+   BOT READY
+======================= */
+client.once("ready", async () => {
   console.log("Bot online");
+
+  // 🔹 SLASH KOMUT YÜKLE
   const commands = [
-  new SlashCommandBuilder()
-    .setName("komutlar")
-    .setDescription("Askerî kamp botunun tüm komutlarını gösterir")
-].map(cmd => cmd.toJSON());
+    new SlashCommandBuilder()
+      .setName("komutlar")
+      .setDescription("Askerî kamp botunun tüm komutlarını gösterir")
+  ].map(cmd => cmd.toJSON());
 
-const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
-(async () => {
   try {
     await rest.put(
       Routes.applicationCommands(client.user.id),
@@ -40,10 +44,8 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   } catch (err) {
     console.error(err);
   }
-})();
 
-});
-
+  // 🔹 DM-DUYURU ROLÜ OLUŞTUR
   client.guilds.cache.forEach(async (guild) => {
     let role = guild.roles.cache.find(r => r.name === ROLE_NAME);
     if (!role) {
@@ -57,6 +59,9 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
   });
 });
 
+/* =======================
+   PREFIX KOMUTLARI
+======================= */
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith(PREFIX)) return;
@@ -66,12 +71,14 @@ client.on("messageCreate", async (message) => {
 
   if (command === "katil") {
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
+    if (!role) return message.reply("❌ Rol bulunamadı.");
     await message.member.roles.add(role);
     message.reply("✅ DM duyurularına katıldın.");
   }
 
   if (command === "ayril") {
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
+    if (!role) return message.reply("❌ Rol bulunamadı.");
     await message.member.roles.remove(role);
     message.reply("❌ DM duyurularından çıktın.");
   }
@@ -84,11 +91,14 @@ client.on("messageCreate", async (message) => {
     if (!text) return message.reply("❌ Mesaj yaz.");
 
     const role = message.guild.roles.cache.find(r => r.name === ROLE_NAME);
-    let sent = 0;
+    if (!role) return message.reply("❌ Rol bulunamadı.");
 
+    let sent = 0;
     for (const member of role.members.values()) {
       try {
-        await member.send(`📢 **Haydi oyuna!!!! | BIG | Turkish Army Forces Tarafından Gönderildi.**\n\n${text}`);
+        await member.send(
+          `📢 **BIG | Turkish Army Forces Duyuru**\n\n${text}`
+        );
         sent++;
       } catch {}
     }
@@ -96,6 +106,10 @@ client.on("messageCreate", async (message) => {
     message.reply(`✅ ${sent} kişiye DM gönderildi.`);
   }
 });
+
+/* =======================
+   SLASH KOMUTLAR
+======================= */
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -117,42 +131,16 @@ client.on("interactionCreate", async interaction => {
 • !komutan
 • !terfi @kisi
 • !alarm
-• !ictima`
+• !ictima
+
+_Disiplinli asker, güçlü birlik._`
       );
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 });
 
+/* =======================
+   LOGIN
+======================= */
 client.login(process.env.DISCORD_TOKEN);
-
-
-if (command === "komutlar") {
-  message.reply(
-`🪖 **ASKERÎ KAMP BOTU – KOMUT LİSTESİ**
-
-👤 **Genel Komutlar**
-• \`!komutlar\` → Komut listesini gösterir
-• \`!katil\` → DM duyurularına katıl
-• \`!ayril\` → DM duyurularından çık
-
-📩 **Duyuru**
-• \`!dm mesaj\` → DM-Duyuru rolündekilere mesaj gönderir (Yetkili)
-
-🎖️ **Eğlence / RP**
-• \`!nobet\` → Rastgele nöbetçi seçer
-• \`!komutan\` → Günün komutanını seçer
-• \`!terfi @kisi\` → Şaka amaçlı terfi
-• \`!alarm\` → Acil durum alarmı
-
-🪖 **Askerî Kamp**
-• \`!ictima\` → Rastgele içtima sorusu
-
-📌 **Not**
-Komutlar zamanla güncellenebilir.
-Disiplinli asker, güçlü birlik!
-`
-  );
-}
-
-const { REST, Routes, SlashCommandBuilder, EmbedBuilder } = require("discord.js");
