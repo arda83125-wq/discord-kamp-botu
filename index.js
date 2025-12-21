@@ -14,19 +14,28 @@ const express = require("express");
 
 // ================= AYARLAR =================
 const TOKEN = process.env.DISCORD_TOKEN;
+const PORT = process.env.PORT || 3000;
+
 const ICTIMA_CHANNEL_ID = "1451620850993336469";
 const LOG_CHANNEL_ID = "1451620849907138695";
 
-// ================= DISCORD BOT =================
+// ================= DISCORD CLIENT =================
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
+// ================= GÜVENLİ KANAL ÇEKME =================
+async function getChannelSafe(id) {
+  try {
+    return await client.channels.fetch(id);
+  } catch {
+    console.log("⚠️ Kanal erişilemedi:", id);
+    return null;
+  }
+}
+
 // ================= SLASH KOMUTLAR =================
-const slashCommands = [
+const commands = [
   new SlashCommandBuilder()
     .setName("komutlar")
     .setDescription("Botun tüm komutlarını gösterir"),
@@ -55,9 +64,7 @@ client.once("ready", async () => {
 
   // Slash yükle
   const rest = new REST({ version: "10" }).setToken(TOKEN);
-  await rest.put(Routes.applicationCommands(client.user.id), {
-    body: slashCommands
-  });
+  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
   console.log("✅ Slash komutlar yüklendi");
 
   // Roller
@@ -69,45 +76,42 @@ client.once("ready", async () => {
 
     for (const r of roles) {
       if (!guild.roles.cache.find(role => role.name === r.name)) {
-        await guild.roles.create({
-          name: r.name,
-          color: r.color,
-          reason: "Askerî Kamp Botu"
-        });
+        try {
+          await guild.roles.create({
+            name: r.name,
+            color: r.color,
+            reason: "Askerî Kamp Botu"
+          });
+          console.log(`🆕 ${r.name} rolü oluşturuldu`);
+        } catch (e) {
+          console.log("⚠️ Rol oluşturulamadı:", r.name);
+        }
       }
     }
   });
 
-  // ================= GÜNLÜK İÇTİMA (3 KEZ) =================
-  setInterval(sendIctima, 8 * 60 * 60 * 1000); // 8 saatte bir
+  // ⏰ 8 saatte bir içtima (günde 3 kez)
+  setInterval(sendIctima, 8 * 60 * 60 * 1000);
   sendIctima();
 });
 
-// ================= İÇTİMA FONKSİYONU =================
+// ================= İÇTİMA =================
 async function sendIctima() {
-  try {
-    const channel = await client.channels.fetch(ICTIMA_CHANNEL_ID);
-    if (!channel) return;
+  const channel = await getChannelSafe(ICTIMA_CHANNEL_ID);
+  if (!channel) return;
 
-    const sorular = [
-      "🪖 İçtima! Bugün görevin nedir?",
-      "🪖 İçtima! Komutanın kim?",
-      "🪖 İçtima! Disiplinin önemi nedir?",
-      "🪖 İçtima! Bugün kaç saat eğitim yapılacak?",
-      "🪖 İçtima! Emir–komuta neden önemlidir?"
-    ];
+  const sorular = [
+    "🪖 İçtima! Disiplin nedir?",
+    "🪖 İçtima! Emir–komuta zinciri neden önemlidir?",
+    "🪖 İçtima! Askerin görevi nedir?",
+    "🪖 İçtima! Birliğin önemi nedir?"
+  ];
 
-    const soru = sorular[Math.floor(Math.random() * sorular.length)];
+  const soru = sorular[Math.floor(Math.random() * sorular.length)];
+  await channel.send(`📢 **İÇTİMA ZAMANI**\n${soru}`);
 
-    await channel.send(`📢 **İÇTİMA ZAMANI!**\n${soru}`);
-
-    // Log
-    const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
-    logChannel.send("📝 İçtima otomatik olarak gönderildi.");
-
-  } catch (err) {
-    console.log("İçtima hatası:", err.message);
-  }
+  const log = await getChannelSafe(LOG_CHANNEL_ID);
+  if (log) log.send("📝 Otomatik içtima gönderildi.");
 }
 
 // ================= KOMUTLAR =================
@@ -116,19 +120,16 @@ client.on("interactionCreate", async interaction => {
 
   const cezaRol = interaction.guild.roles.cache.find(r => r.name === "Ceza");
   const izinRol = interaction.guild.roles.cache.find(r => r.name === "İzinli");
-  const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
 
-  // /komutlar
   if (interaction.commandName === "komutlar") {
     const embed = new EmbedBuilder()
-      .setTitle("🪖 Askerî Kamp Botu – Komutlar")
+      .setTitle("🪖 Askerî Kamp Botu")
       .setColor(0x2f3136)
       .setDescription(`
 • /komutlar
 • /ceza @asker sebep
 • /izinver @asker
       `);
-
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
@@ -136,37 +137,37 @@ client.on("interactionCreate", async interaction => {
     return interaction.reply({ content: "❌ Yetkin yok.", ephemeral: true });
   }
 
-  // /ceza
+  const log = await getChannelSafe(LOG_CHANNEL_ID);
+
   if (interaction.commandName === "ceza") {
     const asker = interaction.options.getMember("asker");
     const sebep = interaction.options.getString("sebep");
 
-    await asker.roles.add(cezaRol);
-    interaction.reply(`🚫 ${asker} cezalı.\nSebep: **${sebep}**`);
+    if (cezaRol) await asker.roles.add(cezaRol);
+    await interaction.reply(`🚫 ${asker} cezalı.\nSebep: **${sebep}**`);
 
-    logChannel.send(`🚫 **CEZA**\nAsker: ${asker}\nSebep: ${sebep}`);
+    if (log) log.send(`🚫 CEZA → ${asker.user.tag} | ${sebep}`);
   }
 
-  // /izinver
   if (interaction.commandName === "izinver") {
     const asker = interaction.options.getMember("asker");
 
-    await asker.roles.add(izinRol);
-    interaction.reply(`🟢 ${asker} izinli.`);
+    if (izinRol) await asker.roles.add(izinRol);
+    await interaction.reply(`🟢 ${asker} izinli.`);
 
-    logChannel.send(`🟢 **İZİN**\nAsker: ${asker}`);
+    if (log) log.send(`🟢 İZİN → ${asker.user.tag}`);
   }
 });
 
+// ================= LOGIN =================
 client.login(TOKEN);
 
 // ================= DASHBOARD =================
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
   res.send(`
-    <h1>🪖 Askerî Kamp Botu Dashboard</h1>
+    <h1>🪖 Askerî Kamp Botu</h1>
     <p>Bot çalışıyor ✅</p>
     <p>Otomatik içtima aktif</p>
     <p>Log sistemi aktif</p>
@@ -174,5 +175,15 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("🌐 Dashboard açık: " + PORT);
+  console.log("🌐 Dashboard açık | Port:", PORT);
 });
+
+// ================= CRASH KORUMA =================
+process.on("unhandledRejection", err => {
+  console.error("❌ UNHANDLED:", err);
+});
+
+process.on("uncaughtException", err => {
+  console.error("❌ CRASH:", err);
+});
+
